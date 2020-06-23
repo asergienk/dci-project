@@ -1,4 +1,5 @@
 import json
+import csv
 from dciclient.v1.api.context import build_signature_context
 from dciclient.v1.api import job as dci_job
 from dciclient.v1.api import file as dci_file
@@ -17,7 +18,7 @@ def get_failed_task_id(job_id):
 def get_failed_task_contents(task_id):
     res = dci_file.content(context, id=task_id)
     file_contents = res.text
-    #print(file_contents)
+    return file_contents
 
 
 #gets comment(failure stage) of the failed task
@@ -27,8 +28,6 @@ def get_comment(job_id):
     return comment
 
 
-
-
 #gets duration of the job in seconds and converting to minutes; on the dashboard this value is in minutes and trancated
 def get_duration(job_id):
     sec_in_min = 60
@@ -36,6 +35,15 @@ def get_duration(job_id):
     duration_in_min = r.json()['job']['duration'] / sec_in_min
     return duration_in_min
 
+
+#Writing data to .csv file
+fields = ['Log content', 'Duration', 'Stage of failure']
+rows = [failed_task_contents, failed_job_duration, failed_comment]
+
+with open('records.csv', 'w', newline='') as f:
+    csvwriter = csv.writer(f)
+    csvwriter.writerow(fields)
+    csvwriter.writerow(rows)
 
 
 
