@@ -40,14 +40,3 @@ team_id",
 "product_id"]}
 
 2. Listing endpoints: sort, limit, offset, where, embed
-
-3. from dciclient.v1.api import job as dci_job
-
-r = dci_job.list_jobstates(context, id="cfe77482-d424-49f3-bff7-d0ca46937d02", limit=1000, offset=0)
-
-jobs = r.json()
-
-print(jobs)
-
-for list_jobstates method for the particular job the output is: list_jobstates_all.json
-if we want to limit to some particular status, need to have where="status:failure"
