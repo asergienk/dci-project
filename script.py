@@ -1,11 +1,18 @@
-import json
+import argparse
 import csv
+import json
 from dciclient.v1.api.context import build_signature_context
 from dciclient.v1.api import job as dci_job
 from dciclient.v1.api import file as dci_file
 
 
 context = build_signature_context()
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('job_id', help="Failed Job ID")
+
+args = parser.parse_args()
 
 
 def get_jobstates_object(job_id):
@@ -43,11 +50,20 @@ def get_remoteci_name(job_id):
     return remoteci_name
 
 
+jobstates_object = get_jobstates_object(args.job_id)
+failed_task_id = get_failed_task_id(jobstates_object)
+failed_task_contents = get_failed_task_contents(failed_task_id)
+failed_comment = get_comment(jobstates_object)
+failed_job_duration = get_duration(args.job_id)
+failed_remoteci_name = get_remoteci_name(args.job_id)
+
+
 failed_task_contents_truncated = (failed_task_contents[:186]) if len(failed_task_contents) > 186 else failed_task_contents
 
 
 fields = ['Log content', 'Duration', 'Stage of failure', 'Remoteci name']
 rows = [failed_task_contents_truncated, failed_job_duration, failed_comment, failed_remoteci_name]
+
 
 with open('records.csv', 'w', newline='') as f:
     csvwriter = csv.writer(f)
