@@ -11,6 +11,7 @@ context = build_signature_context()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("job_id", help="Failed Job ID")
+parser.add_argument("file_name", help="Csv file name")
 args = parser.parse_args()
 
 
@@ -40,7 +41,7 @@ def get_failed_job_ids(callback, product_id):
  
 def print_to_csv(job):
     job_id = job["id"]
-    with open("job_ids.csv", "a", newline="") as f:
+    with open(args.file_name, "a", newline="") as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow([job_id])
 
@@ -82,15 +83,18 @@ def get_remoteci_name(job_id):
     remoteci_name = r.json()["job"]["remoteci"]["name"]
     return remoteci_name
 
+
 product_name = "RHEL-8.2"
 product_id = get_product_id_by_name(product_name)
+get_failed_job_ids(print_to_csv, product_id)
+
+
 first_failed_jobstate = get_first_failed_jobstate(args.job_id)
 failed_task_id = get_failed_task_id(first_failed_jobstate)
 failed_task_contents = get_failed_task_contents(failed_task_id)
 failed_comment = get_comment(first_failed_jobstate)
 failed_job_duration = get_duration(args.job_id)
 failed_remoteci_name = get_remoteci_name(args.job_id)
-get_failed_job_ids(print_to_csv, product_id)
 
 
 failed_task_contents_truncated = (
