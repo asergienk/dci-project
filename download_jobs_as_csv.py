@@ -9,9 +9,17 @@ from dciclient.v1.api import topic as dci_topic
 
 context = build_signature_context()
 
+#positional: just pass the values separated by spaces
+#optional: name of the parameter and value in 'help' separated by spaces
 parser = argparse.ArgumentParser()
-parser.add_argument("job_id", help="Failed Job ID")
-parser.add_argument("file_name", help="Csv file name")
+
+parser.add_argument('job_id', help="Failed Job ID")
+parser.add_argument('file_name', help="Csv file name")
+parser.add_argument('--col1', help="content")
+parser.add_argument('--col2', help="duration")
+parser.add_argument('--col3', help="comment")
+parser.add_argument('--col4', help="remoteci")
+
 args = parser.parse_args()
 
 
@@ -41,7 +49,7 @@ def get_failed_job_ids(callback, product_id):
  
 def print_to_csv(job):
     job_id = job["id"]
-    with open(args.file_name, "a", newline="") as f:
+    with open("job_ids.csv", "a", newline="") as f:
         csvwriter = csv.writer(f)
         csvwriter.writerow([job_id])
 
@@ -96,7 +104,6 @@ failed_comment = get_comment(first_failed_jobstate)
 failed_job_duration = get_duration(args.job_id)
 failed_remoteci_name = get_remoteci_name(args.job_id)
 
-
 failed_task_contents_truncated = (
     (failed_task_contents[:186])
     if len(failed_task_contents) > 186
@@ -104,17 +111,24 @@ failed_task_contents_truncated = (
 )
 
 
-fields = ["Log content", "Duration", "Stage of failure", "Remoteci name"]
-rows = [
-    failed_task_contents_truncated,
-    failed_job_duration,
-    failed_comment,
-    failed_remoteci_name,
-]
-
-
-with open("records.csv", "w", newline="") as f:
+headers = []
+rows = []
+if args.col1:
+    headers.append("Log content")
+    rows.append(failed_task_contents_truncated)
+if args.col2:
+    headers.append("Duration")
+    rows.append(failed_job_duration)
+if args.col3:
+    headers.append("Stage of failure")
+    rows.append(failed_comment)
+if args.col4:
+    headers.append("Remoteci name")
+    rows.append(failed_remoteci_name)
+with open(args.file_name, "w", newline="") as f:
     csvwriter = csv.writer(f)
-    csvwriter.writerow(fields)
+    csvwriter.writerow(headers)
     csvwriter.writerow(rows)
+    
+
 
