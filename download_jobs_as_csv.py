@@ -9,18 +9,32 @@ from dciclient.v1.api import topic as dci_topic
 
 context = build_signature_context()
 
-#positional: just pass the values separated by spaces
-#optional: name of the parameter and value in 'help' separated by spaces
+
+#positional: 'job_id', 'file_name'. Pass the values separated by spaces
+#optional: all that start with --. Pass name of the parameter ('--col1') and value ('content') separated by spaces, except for '--task_name' pass the actual task_name from dashboard
 parser = argparse.ArgumentParser()
 
+parser.add_argument('product_name', help="Product name")
 parser.add_argument('job_id', help="Failed Job ID")
 parser.add_argument('file_name', help="Csv file name")
 parser.add_argument('--col1', help="content")
 parser.add_argument('--col2', help="duration")
 parser.add_argument('--col3', help="comment")
 parser.add_argument('--col4', help="remoteci")
+parser.add_argument('--task_name', help="task name")
 
 args = parser.parse_args()
+
+
+
+def task_is_in_tasklist(job_id, task_name):
+    r = dci_job.list_jobstates(context, id=job_id, limit=1000, offset=0, embed="files")
+    jobstates = r.json()["jobstates"]
+    for jobstate in jobstates:
+        for item_file in jobstate["files"]:
+            if item_file["name"] == task_name:
+                return 1
+    return 0
 
 
 def get_product_id_by_name(product_name):
@@ -62,8 +76,7 @@ def get_first_failed_jobstate(job_id):
     return jobstate
 
 
-# from the list of failed tasks returns the id of a task that failed first
-def get_failed_task_id(jobstate):
+def get_first_failed_task_id(jobstate):
     task_id = jobstate["files"][0]["id"]
     return task_id
 
@@ -92,17 +105,17 @@ def get_remoteci_name(job_id):
     return remoteci_name
 
 
-product_name = "RHEL-8.2"
-product_id = get_product_id_by_name(product_name)
+product_id = get_product_id_by_name(args.product_name)
 get_failed_job_ids(print_to_csv, product_id)
 
 
 first_failed_jobstate = get_first_failed_jobstate(args.job_id)
-failed_task_id = get_failed_task_id(first_failed_jobstate)
+failed_task_id = get_first_failed_task_id(first_failed_jobstate)
 failed_task_contents = get_failed_task_contents(failed_task_id)
 failed_comment = get_comment(first_failed_jobstate)
 failed_job_duration = get_duration(args.job_id)
 failed_remoteci_name = get_remoteci_name(args.job_id)
+task_is_present = task_is_in_tasklist(args.job_id, args.task_name)
 
 failed_task_contents_truncated = (
     (failed_task_contents[:186])
@@ -125,6 +138,9 @@ if args.col3:
 if args.col4:
     headers.append("Remoteci name")
     rows.append(failed_remoteci_name)
+if args.task_name:
+    headers.append("Task is present")
+    rows.append(task_is_present)
 with open(args.file_name, "w", newline="") as f:
     csvwriter = csv.writer(f)
     csvwriter.writerow(headers)
