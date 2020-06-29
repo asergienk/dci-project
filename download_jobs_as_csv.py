@@ -103,7 +103,13 @@ def get_year_of_creation(job_id):
     return year_of_creation
     
 
-#store job ids in a list
+def get_job_dashboard_link(job_id):
+    dashboard_link = "https://www.distributed-ci.io/jobs/"
+    job_dashboard_link = dashboard_link + job_id
+    return job_dashboard_link
+
+
+#stores job ids in a list
 def get_failed_job_ids(product_id):
     num_of_failed_jobs = dci_job.list(
         context, where=f"product_id:{product_id},status:failure", limit=1, offset=0
@@ -132,7 +138,7 @@ def print_to_csv(rows, mode):
         csvwriter.writerow(rows)
 
 
-headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Task is present", "Year of creation"]
+headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Is user-tests.yml present", "Year of creation", "Dashboard link"]
 product_id = get_product_id_by_name("RHEL")
 jobs_ids_list = get_failed_job_ids(product_id)
 
@@ -145,14 +151,15 @@ for job_id in jobs_ids_list:
     comment = get_comment(first_failed_jobstate)
     job_duration = get_duration(job_id)
     remoteci_name = get_remoteci_name(job_id)
-    task_is_present = task_is_in_tasklist(job_id, "include_tasks: release.yml")
+    task_is_present = task_is_in_tasklist(job_id, "include_tasks: {{ dci_config_dir }}/hooks/user-tests.yml")
     year_of_creation = get_year_of_creation(job_id)
+    dashboard_link = get_job_dashboard_link(job_id)
     task_contents_truncated = (
         (task_contents[:186])
         if len(task_contents) > 186
         else task_contents
         )
-    rows = [job_id, task_contents_truncated, job_duration, comment, remoteci_name, task_is_present, year_of_creation]
+    rows = [job_id, task_contents_truncated, job_duration, comment, remoteci_name, task_is_present, year_of_creation, dashboard_link]
     print_to_csv(rows, mode)
     mode = "a"
     
