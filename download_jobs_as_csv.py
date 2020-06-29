@@ -91,10 +91,17 @@ def get_remoteci_name(job_id):
     return remoteci_name
 
 
-def add_header_and_row(header, row):
-    headers.append(header)
-    rows.append(row)
+# def add_header_and_row(header, row):
+#     headers.append(header)
+#     rows.append(row)
 
+
+def get_year_of_creation(job_id):
+    r = dci_job.get(context, id=job_id)
+    date_of_creation = r.json()["job"]["created_at"]
+    year_of_creation = date_of_creation[:4]
+    return year_of_creation
+    
 
 #store job ids in a list
 def get_failed_job_ids(product_id):
@@ -125,7 +132,7 @@ def print_to_csv(rows, mode):
         csvwriter.writerow(rows)
 
 
-headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Task is present"]
+headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Task is present", "Year of creation"]
 product_id = get_product_id_by_name("RHEL")
 jobs_ids_list = get_failed_job_ids(product_id)
 
@@ -139,12 +146,13 @@ for job_id in jobs_ids_list:
     job_duration = get_duration(job_id)
     remoteci_name = get_remoteci_name(job_id)
     task_is_present = task_is_in_tasklist(job_id, "include_tasks: release.yml")
+    year_of_creation = get_year_of_creation(job_id)
     task_contents_truncated = (
         (task_contents[:186])
         if len(task_contents) > 186
         else task_contents
         )
-    rows = [job_id, task_contents_truncated, job_duration, comment, remoteci_name, task_is_present]
+    rows = [job_id, task_contents_truncated, job_duration, comment, remoteci_name, task_is_present, year_of_creation]
     print_to_csv(rows, mode)
     mode = "a"
     
