@@ -6,3 +6,5 @@ job_from_file2.json
 test.json
 *.csv
 test.py
+test_job_parsing.py
+.pytest_cache
