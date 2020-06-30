@@ -51,7 +51,7 @@ def get_product_id_by_name(product_name):
 #if the job has no tasks returns None
 def get_first_failed_bucket(job_id):
    r = dci_job.list_jobstates(
-       context, id=job_id, where="status:running", limit=1000, offset=0, embed="files"
+       context, id=job_id, where="status:failure", limit=1000, offset=0, embed="files"
    )
    try:
        bucket = r.json()["jobstates"][-1]
@@ -60,22 +60,15 @@ def get_first_failed_bucket(job_id):
    return bucket
  
  
-'''
-earliest_time = jobstate[0]['created_at']
-for task in jobstate:
-   if task['created_at'] < earliest_time:
-       earliest_time = task['created_at']
-'''
- 
-#NEEDS IMPROVEMENT
 #if the job has no files returns None
 def get_first_failed_task_id(bucket):
    if bucket == "None":
        return "None"
    try:
-   #sorting task by created_at
-       earliest_time = bucket['files'][0]['created_at']
-       earliest_task_id = bucket['files'][0]['id']
+       #sorting task by created_at
+       first_bucket_task = bucket['files'][0]
+       earliest_time = first_bucket_task['created_at']
+       earliest_task_id = first_bucket_task['id']
        for task in bucket['files']:
            if task['created_at'] < earliest_time:
                earliest_time = task['created_at']
@@ -98,72 +91,14 @@ def get_comment(bucket):
        return "None"
    comment = bucket["comment"]
    return comment
- 
- 
-def get_duration(job_id):
-   sec_in_min = 60
-   r = dci_job.get(context, id=job_id)
-   duration_in_min = str(round((r.json()["job"]["duration"] / sec_in_min), 2))
-   return duration_in_min
- 
- 
-def get_remoteci_name(job_id):
-   r = dci_job.get(context, id=job_id, embed="remoteci")
-   remoteci_name = r.json()["job"]["remoteci"]["name"]
-   return remoteci_name
- 
- 
-# def add_header_and_row(header, row):
-#     headers.append(header)
-#     rows.append(row)
- 
- 
-def get_year_of_creation(job_id):
-   r = dci_job.get(context, id=job_id)
-   date_of_creation = r.json()["job"]["created_at"]
-   year_of_creation = date_of_creation[:4]
-   return year_of_creation
-  
- 
-def get_job_dashboard_link(job_id):
-   dashboard_link = "https://www.distributed-ci.io/jobs/"
-   job_dashboard_link = dashboard_link + job_id
-   return job_dashboard_link
- 
- 
-#stores job ids in a list
-def get_failed_job_ids(product_id):
-   num_of_failed_jobs = dci_job.list(
-       context, where=f"product_id:{product_id},status:failure", limit=1, offset=0
-   ).json()["_meta"]["count"]
-   offset = 0
-   limit = 100
-   job_ids_list = []
-   while offset < num_of_failed_jobs:
-       jobs_list = dci_job.list(
-           context,
-           where=f"product_id:{product_id},status:failure",
-           limit=limit,
-           offset=offset,
-       ).json()["jobs"]
-       for job in jobs_list:
-           job_ids_list.append(job["id"])
-       offset += limit
-   return job_ids_list
-  
- 
- 
- 
- 
- 
- 
- 
+
  
 def get_jobs(where, limit, offset, embed):
    return dci_job.list(
        context, where=where, limit=limit, offset=offset, embed=embed
    ).json()
  
+
 def get_jobs_for_product(product_id):
    num_of_jobs = get_jobs(
        where=f"product_id:{product_id}", limit=1, offset=0, embed="remoteci"
@@ -182,19 +117,15 @@ def get_jobs_for_product(product_id):
        offset += limit
    return jobs      
  
-def print_to_csv(rows, mode):
-   with open("all_jobs_info.csv", mode, newline="") as f:
-       csvwriter = csv.writer(f)
-       if mode == "w":
-           csvwriter.writerow(headers)
-       csvwriter.writerow(rows)
- 
  
 def get_values(job):
    values = []
    values.append(job["id"])
+   values.append(job['task_content'])
    values.append(str(round((job["duration"] / 60), 2)))
+   values.append(job['bucket_comment'])
    values.append(job["remoteci"]["name"])
+   values.append(job['task_is_present'])
    values.append((job["created_at"])[:4])
    values.append("https://www.distributed-ci.io/jobs/" + job["id"])
    return values
@@ -209,27 +140,35 @@ def append_job_to_csv(file_name, values):
 def remove_current_csv(file_name):
    os.remove(file_name)
  
+
 def create_csv_file_with_headers(file_name, headers):
    with open(file_name, "w", newline="") as f:
        csvwriter = csv.writer(f)
        csvwriter.writerow(headers)
  
+
 def enhance_job(job):
    task_id = get_first_failed_task_id(get_first_failed_bucket(job['id']))
-   job['Content'] = job['duration'] / 1000
+   task_contents = get_failed_task_contents(task_id)
+   task_contents_truncated = (
+       (task_contents[:186])
+       if len(task_contents) > 186
+       else task_contents
+       )
+   job['task_content'] = task_contents_truncated
+   job['bucket_comment'] = get_comment(get_first_failed_bucket(job['id']))
+   job['task_is_present'] = task_is_in_tasklist(job['id'], "include_tasks: {{ dci_config_dir }}/hooks/user-tests.yml")
    return job
+
  
  
 if __name__ == "__main__":
    csv_file_name = './jobs_6_30_2020.csv'
  
    remove_current_csv(csv_file_name)
-   headers = ["Job ID", "Duration", "Remoteci name", "Year of creation", "Dashboard link"]
+   headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Is user-tests.yml present", "Year of creation", "Dashboard link"]
    create_csv_file_with_headers(csv_file_name, headers)
  
-   #headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Is user-tests.yml present", "Year of creation", "Dashboard link"]
- 
-   #jobs_ids_list = get_failed_job_ids(product_id)
    product_id = get_product_id_by_name("RHEL")
  
    # job = get_jobs(
@@ -243,46 +182,14 @@ if __name__ == "__main__":
        if job['status'] != 'failure':
            continue
  
-       #job = enhance_job(job)
+       job = enhance_job(job)
        job_values = get_values(job)
        assert len(job_values) == len(headers)
        append_job_to_csv(csv_file_name, job_values)
  
  
- 
- 
- 
- 
- 
- 
- 
- 
-"""
-remote_and_recreate_csv_with_headers()
-for job in get_jobs_for_product(product_id):
-   append_to_my_csv(job)
- 
-mode = "w"
-for job_id in jobs_ids_list:
-   first_failed_jobstate = get_first_failed_bucket(job_id)
-   task_id = get_first_failed_task_id(first_failed_jobstate)
-   task_contents = get_failed_task_contents(task_id)
-   comment = get_comment(first_failed_jobstate)
-   job_duration = get_duration(job_id)
-   remoteci_name = get_remoteci_name(job_id)
-   task_is_present = task_is_in_tasklist(job_id, "include_tasks: {{ dci_config_dir }}/hooks/user-tests.yml")
-   year_of_creation = get_year_of_creation(job_id)
-   dashboard_link = get_job_dashboard_link(job_id)
-   task_contents_truncated = (
-       (task_contents[:186])
-       if len(task_contents) > 186
-       else task_contents
-       )
-   rows = [job_id, task_contents_truncated, job_duration, comment, remoteci_name, task_is_present, year_of_creation, dashboard_link]
-   print_to_csv(rows, mode)
-   mode = "a"
-  
-"""
+
+
 # headers = []
 # rows = []
 # if args.col1:
