@@ -10,7 +10,16 @@
 - add parameters in CLI to choose the columns instead of hardcoding them (python download_jobs_as_csv.py output.csv id duration)
 
 
-
+7/1/2020
+- use embed jobstates on get jobs - done
+- get first failed jobstate - done
+- use first failed file - done
+- fix tests for jobstate error - done
+- add printer in printer.py or in csv.py
+- clean your methods, files names, structure code correctly
+- check if we get the proper jobs for RHEL (why do we have jobs for OCP)
+- commit and push
+- creating document (README.md) How to install, requirements (python version), how to run test
 
 
 

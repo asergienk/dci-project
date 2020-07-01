@@ -56,16 +56,16 @@ def get_first_failed_bucket(job_id):
    try:
        bucket = r.json()["jobstates"][-1]
    except IndexError:
-       return "None"
+       return None
    return bucket
  
  
 #if the job has no files returns None
 def get_first_failed_task_id(bucket):
-   if bucket == "None":
-       return "None"
+   if bucket == None:
+       return None
    try:
-       #sorting task by created_at
+       #comparing 'created_at' parameter of each task to find the earliest time
        first_bucket_task = bucket['files'][0]
        earliest_time = first_bucket_task['created_at']
        earliest_task_id = first_bucket_task['id']
@@ -74,21 +74,21 @@ def get_first_failed_task_id(bucket):
                earliest_time = task['created_at']
                earliest_task_id = task['id']
    except IndexError:
-       return "None"
+       return None
    return earliest_task_id
  
  
 def get_failed_task_contents(task_id):
-   if task_id == "None":
-       return "None"
+   if task_id == None:
+       return None
    res = dci_file.content(context, id=task_id)
    file_contents = res.text
    return file_contents
  
- 
+#fix None 
 def get_comment(bucket):
-   if bucket == "None":
-       return "None"
+   if bucket == None:
+       return
    comment = bucket["comment"]
    return comment
 
@@ -122,7 +122,8 @@ def get_values(job):
    values = []
    values.append(job["id"])
    values.append(job['task_content'])
-   values.append(str(round((job["duration"] / 60), 2)))
+   #values.append(str(round((job["duration"] / 60), 2)))
+   values.append(job['duration'])
    values.append(job['bucket_comment'])
    values.append(job["remoteci"]["name"])
    values.append(job['task_is_present'])
@@ -167,16 +168,19 @@ if __name__ == "__main__":
  
    remove_current_csv(csv_file_name)
    headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Is user-tests.yml present", "Year of creation", "Dashboard link"]
+   #headers = ["Job ID", "Duration", "Remoteci name", "Year of creation", "Dashboard link"]
+
    create_csv_file_with_headers(csv_file_name, headers)
  
    product_id = get_product_id_by_name("RHEL")
  
-   # job = get_jobs(
-   #             where=f"product_id:{product_id}",
-   #             limit=1,
-   #             offset=0,
-   #             embed="remoteci,files"
-   #         )["jobs"][0]
+#    job = get_jobs(
+#                where=f"product_id:{product_id}",
+#                limit=1,
+#                offset=0,
+#                embed="remoteci"
+#            )["jobs"]
+   
  
    for job in get_jobs_for_product(product_id):
        if job['status'] != 'failure':
