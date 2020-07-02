@@ -1,6 +1,4 @@
-import argparse
 import json
-import os
 import os.path
 from dciclient.v1.api.context import build_signature_context
 from dciclient.v1.api import job as dci_job
@@ -98,4 +96,4 @@ if __name__ == "__main__":
     for job in jobs:
         job = enhance_job(job)
         job_values = get_values(job)
-        append_job_to_csv(csv_file_name, job_values)
+        #append_job_to_csv(csv_file_name, job_values)

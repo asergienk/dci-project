@@ -15,10 +15,10 @@
 - get first failed jobstate - done
 - use first failed file - done
 - fix tests for jobstate error - done
-- add printer in printer.py or in csv.py
-- clean your methods, files names, structure code correctly
-- check if we get the proper jobs for RHEL (why do we have jobs for OCP)
-- commit and push
+- add printer in printer.py or in csv.py - done
+- clean your methods, files names, structure code correctly - done
+- check if we get the proper jobs for RHEL (why do we have jobs for OCP) -done
+- commit and push - done
 - creating document (README.md) How to install, requirements (python version), how to run test
 
 
