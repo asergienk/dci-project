@@ -9,7 +9,7 @@ from datetime import datetime
 from sort import sort_by_created_at
 from jobstates import get_first_jobstate_failure, get_jobstate_before_failure
 from csv_manipulations import remove_current_csv, create_csv_file_with_headers, append_job_to_csv
-from file_is_in_jobstate import check_if_file_is_in_files
+from file_is_in_files import check_if_file_is_in_files
  
  
 context = build_signature_context()
@@ -17,20 +17,20 @@ context = build_signature_context()
  
 def get_product_id_by_name(product_name):
     r = dci_product.list(context, where=f"name:{product_name}")
-    product_id = r.json()["products"][0]["id"]
+    product_id = r.json()['products'][0]['id']
     return product_id
  
  
 def get_files_for_jobstate(jobstate_id):
     r = dci_jobstate.get(context, id=jobstate_id, embed="files")
     r.raise_for_status()
-    return r.json()["jobstate"]["files"]
+    return r.json()['jobstate']['files']
 
  
 def get_jobstates_with_files(job_id):
     r = dci_job.list_jobstates(context, id=job_id, embed='files')
     r.raise_for_status()
-    return r.json()["jobstates"]
+    return r.json()['jobstates']
     
  
 def get_failed_jobs_for_product(product_id):
@@ -45,8 +45,8 @@ def get_failed_jobs_for_product(product_id):
             where=f"product_id:{product_id},status:failure",
             limit=limit,
             offset=offset,
-            embed="remoteci,jobstates",
-        ).json()["jobs"]
+            embed='remoteci,jobstates',
+        ).json()['jobs']
         jobs = jobs + jobs_list
         offset += limit
     return jobs
@@ -62,8 +62,8 @@ def enhance_job(job, first_jobstate_failure, files):
     job['stage_of_failure'] = first_jobstate_failure['comment']
     files_sorted = sort_by_created_at(files)
     first_file = files_sorted[0]
-    content = get_content_for_file(first_file["id"])
-    job["content"] = content
+    content = get_content_for_file(first_file['id'])
+    job['content'] = content
     
 
     jobstate_before_failure = get_jobstate_before_failure(get_jobstates_with_files(job['id']))
@@ -78,7 +78,7 @@ def enhance_job(job, first_jobstate_failure, files):
  
 def get_values(job):
     values = []
-    values.append("https://www.distributed-ci.io/jobs/" + job["id"])
+    values.append("https://www.distributed-ci.io/jobs/" + job['id'])
     values.append(job['content'])
     values.append(job['stage_of_failure'])
     if job['is_user_text']:
@@ -101,13 +101,13 @@ def get_values(job):
  
  
 if __name__ == "__main__":
-    csv_file_name = './jobs_7_2_2020_new4.csv'
+    csv_file_name = './jobs_7_2_2020_new5.csv'
     if os.path.exists(csv_file_name):
         remove_current_csv(csv_file_name)
     headers = ["Job ID", "Error Message", "Stage of Failure", "Is_user_text.yml", "Is_SUT.yml", "Is_install.yml", "Is_logs.yml"]
     create_csv_file_with_headers(csv_file_name, headers)
     
-    product_id = get_product_id_by_name("RHEL")
+    product_id = get_product_id_by_name('RHEL')
     jobs = get_failed_jobs_for_product(product_id)
     
     for job in jobs:
