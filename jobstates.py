@@ -7,3 +7,11 @@ def get_first_jobstate_failure(jobstates):
     for jobstate in sorted_jobstates:
         if jobstate["status"] == "failure" or jobstate["status"] == "error":
             return jobstate
+
+
+def get_jobstate_before_failure(jobstates):
+    for jobstate in jobstates:
+        if jobstate['status'] != 'failure' and jobstate['status'] != 'error':
+            return jobstate
+        if not jobstate['files']:
+            continue

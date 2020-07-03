@@ -7,25 +7,32 @@ from dciclient.v1.api import product as dci_product
 from dciclient.v1.api import jobstate as dci_jobstate
 from datetime import datetime
 from sort import sort_by_created_at
-from jobstates import get_first_jobstate_failure
+from jobstates import get_first_jobstate_failure, get_jobstate_before_failure
 from csv_manipulations import remove_current_csv, create_csv_file_with_headers, append_job_to_csv
-
-
+from file_is_in_jobstate import check_if_file_is_in_files
+ 
+ 
 context = build_signature_context()
-
-
+ 
+ 
 def get_product_id_by_name(product_name):
-   r = dci_product.list(context, where=f"name:{product_name}")
-   product_id = r.json()["products"][0]["id"]
-   return product_id
-
-
+    r = dci_product.list(context, where=f"name:{product_name}")
+    product_id = r.json()["products"][0]["id"]
+    return product_id
+ 
+ 
 def get_files_for_jobstate(jobstate_id):
     r = dci_jobstate.get(context, id=jobstate_id, embed="files")
     r.raise_for_status()
     return r.json()["jobstate"]["files"]
 
-
+ 
+def get_jobstates_with_files(job_id):
+    r = dci_job.list_jobstates(context, id=job_id, embed='files')
+    r.raise_for_status()
+    return r.json()["jobstates"]
+    
+ 
 def get_failed_jobs_for_product(product_id):
     num_of_jobs = dci_job.list(context,where=f"product_id:{product_id},status:failure", limit=1, offset=0).json()[
         "_meta"
@@ -43,57 +50,82 @@ def get_failed_jobs_for_product(product_id):
         jobs = jobs + jobs_list
         offset += limit
     return jobs
-
-
+ 
+ 
 def get_content_for_file(file_id):
     r = dci_file.content(context, id=file_id)
     r.raise_for_status()
     return r.text
-
-
-def enhance_job(job):
-    first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
+ 
+ 
+def enhance_job(job, first_jobstate_failure, files):
     job['stage_of_failure'] = first_jobstate_failure['comment']
-    first_jobstate_failure_id = first_jobstate_failure["id"]
-    files = get_files_for_jobstate(first_jobstate_failure_id)
-    if not files:
-        job["content"] = "None"
-    else:
-        files_sorted = sort_by_created_at(files)
-        first_file = files_sorted[0]
-        content = get_content_for_file(first_file["id"])
-        content_truncated = (
-            (content[:186])
-            if len(content) > 186
-            else content
-            )
-        job["content"] = content_truncated
+    files_sorted = sort_by_created_at(files)
+    first_file = files_sorted[0]
+    content = get_content_for_file(first_file["id"])
+    job["content"] = content
+    
+
+    jobstate_before_failure = get_jobstate_before_failure(get_jobstates_with_files(job['id']))
+    files_for_jobstate_before_failure = get_files_for_jobstate(jobstate_before_failure['id'])
+
+    job['is_user_text'] = check_if_file_is_in_files(files_for_jobstate_before_failure, "include_tasks: {{ dci_config_dir }}/hooks/user-tests.yml")
+    job['is_sut'] = check_if_file_is_in_files(files_for_jobstate_before_failure, "include_tasks: sut.yml")
+    job['is_install'] = check_if_file_is_in_files(files_for_jobstate_before_failure, "include_tasks: install.yml")
+    job['is_logs'] = check_if_file_is_in_files(files_for_jobstate_before_failure, "include_tasks: logs.yml")
     return job
-
-
+ 
+ 
 def get_values(job):
-   values = []
-   values.append(job["id"])
-   values.append(job['content'])
-   values.append(job['duration'])
-   values.append(job['stage_of_failure'])
-   values.append(job["remoteci"]["name"])
-   values.append((job["created_at"])[:4])
-   values.append("https://www.distributed-ci.io/jobs/" + job["id"])
-   return values
-
-
+    values = []
+    values.append("https://www.distributed-ci.io/jobs/" + job["id"])
+    values.append(job['content'])
+    values.append(job['stage_of_failure'])
+    if job['is_user_text']:
+        values.append("1")
+    else:
+        values.append("0")
+    if job['is_sut']:
+        values.append("1")
+    else:
+        values.append("0")
+    if job['is_install']:
+        values.append("1")
+    else:
+        values.append("0")
+    if job['is_logs']:
+        values.append("1")
+    else:
+        values.append("0")
+    return values
+ 
+ 
 if __name__ == "__main__":
-    csv_file_name = './jobs_7_1_2020.csv'
+    csv_file_name = './jobs_7_2_2020_new4.csv'
     if os.path.exists(csv_file_name):
         remove_current_csv(csv_file_name)
-    headers = ["Job ID", "Content", "Duration", "Stage of failure", "Remoteci name", "Year of creation", "Dashboard link"]
+    headers = ["Job ID", "Error Message", "Stage of Failure", "Is_user_text.yml", "Is_SUT.yml", "Is_install.yml", "Is_logs.yml"]
     create_csv_file_with_headers(csv_file_name, headers)
-
+    
     product_id = get_product_id_by_name("RHEL")
     jobs = get_failed_jobs_for_product(product_id)
-
+    
     for job in jobs:
-        job = enhance_job(job)
+        created_at = datetime.strptime(job['created_at'], "%Y-%m-%dT%H:%M:%S.%f")
+        if created_at.year < 2020:
+            continue
+        
+        if job['remoteci']['name'] == 'westford-lab' or job['remoteci']['name'] == 'dci-rhel-agent-ci' or job['remoteci']['name'] == 'pctt-fdaencar'or job['remoteci']['name'] == 'p3ck-lab' or job['remoteci']['name'] == 'pctt-thomas-1':
+           continue
+     
+        first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
+        first_jobstate_failure_id = first_jobstate_failure["id"]
+        files = get_files_for_jobstate(first_jobstate_failure_id)
+        if not files:
+            continue
+        
+        job = enhance_job(job, first_jobstate_failure, files)
         job_values = get_values(job)
-        #append_job_to_csv(csv_file_name, job_values)
+        append_job_to_csv(csv_file_name, job_values)
+ 
+
