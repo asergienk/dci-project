@@ -1,6 +1,7 @@
 import json
 import os.path
-from dciclient.v1.api.context import build_signature_context
+import time
+from dciclient.v1.api.context import build_dci_context
 from dciclient.v1.api import job as dci_job
 from dciclient.v1.api import file as dci_file
 from dciclient.v1.api import product as dci_product
@@ -16,7 +17,7 @@ from csv_manipulations import (
 from file_is_in_files import check_if_file_is_in_files
 
 
-context = build_signature_context()
+context = build_dci_context()
 
 
 def get_product_id_by_name(product_name):
@@ -131,8 +132,9 @@ def get_values(job):
     return values
 
 
-if __name__ == "__main__":
-    csv_file_name = "./jobs_7_6_2020_dell_rhel4.csv"
+def api_main(file_path):
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    csv_file_name = file_path + "jobs_" + timestr + ".csv"
     if os.path.exists(csv_file_name):
         remove_current_csv(csv_file_name)
     headers = [
@@ -172,3 +174,9 @@ if __name__ == "__main__":
         job = enhance_job(job, first_jobstate_failure, files)
         job_values = get_values(job)
         append_job_to_csv(csv_file_name, job_values)
+    
+    return csv_file_name
+
+
+if __name__ == "__main__":
+    api_main()
