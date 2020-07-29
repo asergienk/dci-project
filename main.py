@@ -20,19 +20,21 @@ from file_is_in_files import check_if_file_is_in_files
 
 
 headers = [
-        "Job_link",
-        "Job_ID",
-        "Error_Message",
-        "Stage_of_Failure",
-        "Is_user_text.yml",
-        "Is_SUT.yml",
-        "Is_install.yml",
-        "Is_logs.yml",
-    ]
+    "Job_link",
+    "Job_ID",
+    "Error_Message",
+    "Stage_of_Failure",
+    "Is_user_text.yml",
+    "Is_SUT.yml",
+    "Is_install.yml",
+    "Is_logs.yml",
+    "is_dci-rhel-cki",
+]
 
 context = build_dci_context()
 LOG = logging.getLogger(__name__)
 logging.getLogger().setLevel(logging.INFO)
+
 
 def get_product_id_by_name(product_name):
     r = dci_product.list(context, where=f"name:{product_name}")
@@ -78,9 +80,11 @@ def get_content_for_file(file_id):
     return r.text
 
 
-def change_content_to_wait_system_to_be_installed(job, files_for_jobstate_before_failure):
+def change_content_to_wait_system_to_be_installed(
+    job, files_for_jobstate_before_failure
+):
     for file in files_for_jobstate_before_failure:
-        if file['name'] == "Wait system to be installed":
+        if file["name"] == "Wait system to be installed":
             job["content"] = get_content_for_file(file["id"])
             return job["content"]
     return None
@@ -101,14 +105,14 @@ def enhance_job(job, first_jobstate_failure, files):
 
     job["stage_of_failure"] = first_jobstate_failure["comment"]
     if job["stage_of_failure"] == "Gathering Facts":
-        job["content"] = change_content_to_wait_system_to_be_installed(job, files_for_jobstate_before_failure)
+        job["content"] = change_content_to_wait_system_to_be_installed(
+            job, files_for_jobstate_before_failure
+        )
         if job["content"] is None:
             job["content"] = content
-        
 
     job["is_user_text"] = check_if_file_is_in_files(
-        files_for_jobstate_before_failure,
-        "/hooks/user-tests.yml",
+        files_for_jobstate_before_failure, "/hooks/user-tests.yml",
     )
     job["is_sut"] = check_if_file_is_in_files(
         files_for_jobstate_before_failure, "include_tasks: sut.yml"
@@ -119,6 +123,12 @@ def enhance_job(job, first_jobstate_failure, files):
     job["is_logs"] = check_if_file_is_in_files(
         files_for_jobstate_before_failure, "include_tasks: logs.yml"
     )
+
+    if "dci-rhel-cki" in files_sorted[0]["name"]:
+        job["is_dci-rhel-cki"] = True
+    else:
+        job["is_dci-rhel-cki"] = False
+
     return job
 
 
@@ -144,7 +154,12 @@ def get_values(job):
         values.append("1")
     else:
         values.append("0")
+    if job["is_dci-rhel-cki"]:
+        values.append("1")
+    else:
+        values.append("0")
     return values
+
 
 def test_data(job_id):
     csv_file_name = create_csv_file_name()
@@ -154,7 +169,7 @@ def test_data(job_id):
     flag = False
 
     for job in jobs:
-        if job['id'] == job_id:
+        if job["id"] == job_id:
             first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
             first_jobstate_failure_id = first_jobstate_failure["id"]
             files = get_files_for_jobstate(first_jobstate_failure_id)
@@ -164,10 +179,10 @@ def test_data(job_id):
             flag = True
             break
 
-    if(flag == False):
+    if flag == False:
         LOG.error(traceback.format_exc())
         sys.exit(1)
-    
+
 
 def api_main():
     csv_file_name = create_csv_file_name()
@@ -177,28 +192,27 @@ def api_main():
     jobs = get_failed_jobs_for_product(product_id)
 
     for job in jobs:
-            created_at = datetime.strptime(job["created_at"], "%Y-%m-%dT%H:%M:%S.%f")
-            if created_at.year < 2020:
-                continue
+        created_at = datetime.strptime(job["created_at"], "%Y-%m-%dT%H:%M:%S.%f")
+        if created_at.year < 2020:
+            continue
 
-            if (
-                job["remoteci"]["name"] == "westford-lab"
-                or job["remoteci"]["name"] == "dci-rhel-agent-ci"
-                or job["remoteci"]["name"] == "pctt-fdaencar"
-                or job["remoteci"]["name"] == "p3ck-lab"
-                or job["remoteci"]["name"] == "pctt-thomas-1"
-            ):
-                continue
+        if (
+            job["remoteci"]["name"] == "westford-lab"
+            or job["remoteci"]["name"] == "dci-rhel-agent-ci"
+            or job["remoteci"]["name"] == "pctt-fdaencar"
+            or job["remoteci"]["name"] == "p3ck-lab"
+            or job["remoteci"]["name"] == "pctt-thomas-1"
+        ):
+            continue
 
-            first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
-            first_jobstate_failure_id = first_jobstate_failure["id"]
-            files = get_files_for_jobstate(first_jobstate_failure_id)
-            if not files:
-                continue
-            job = enhance_job(job, first_jobstate_failure, files)
-            job_values = get_values(job)
-            append_job_to_csv(csv_file_name, job_values)
-        
+        first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
+        first_jobstate_failure_id = first_jobstate_failure["id"]
+        files = get_files_for_jobstate(first_jobstate_failure_id)
+        if not files:
+            continue
+        job = enhance_job(job, first_jobstate_failure, files)
+        job_values = get_values(job)
+        append_job_to_csv(csv_file_name, job_values)
 
 
 if __name__ == "__main__":
