@@ -28,7 +28,7 @@ headers = [
     "Is_SUT.yml",
     "Is_install.yml",
     "Is_logs.yml",
-    "is_dci-rhel-cki",
+    "Is_dci-rhel-cki",
 ]
 
 context = build_dci_context()
@@ -164,23 +164,19 @@ def get_values(job):
 def test_data(job_id):
     csv_file_name = create_csv_file_name()
     create_csv_file_with_headers(csv_file_name, headers)
-    product_id = get_product_id_by_name("RHEL")
-    jobs = get_failed_jobs_for_product(product_id)
-    flag = False
-
-    for job in jobs:
-        if job["id"] == job_id:
-            first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
-            first_jobstate_failure_id = first_jobstate_failure["id"]
-            files = get_files_for_jobstate(first_jobstate_failure_id)
-            job = enhance_job(job, first_jobstate_failure, files)
-            job_values = get_values(job)
-            append_job_to_csv(csv_file_name, job_values)
-            flag = True
-            break
-
-    if flag == False:
-        LOG.error(traceback.format_exc())
+    try:
+        r = dci_job.get(
+            context, id=job_id, limit=1, offset=0, embed="remoteci,jobstates"
+        )
+        job = r.json()["job"]
+        first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
+        first_jobstate_failure_id = first_jobstate_failure["id"]
+        files = get_files_for_jobstate(first_jobstate_failure_id)
+        job = enhance_job(job, first_jobstate_failure, files)
+        job_values = get_values(job)
+        append_job_to_csv(csv_file_name, job_values)
+    except Exception:
+        # LOG.error(traceback.format_exc())
         sys.exit(1)
 
 
