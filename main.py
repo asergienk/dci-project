@@ -7,6 +7,7 @@ from dciclient.v1.api import job as dci_job
 from dciclient.v1.api import file as dci_file
 from dciclient.v1.api import product as dci_product
 from dciclient.v1.api import jobstate as dci_jobstate
+from dciclient.v1.api import analytic as dci_analytics
 from datetime import datetime
 from sort import sort_by_created_at
 from jobstates import get_first_jobstate_failure, get_jobstate_before_failure
@@ -29,6 +30,7 @@ headers = [
     "Is_install.yml",
     "Is_logs.yml",
     "Is_dci-rhel-cki",
+    "Error_Type"
 ]
 
 context = build_dci_context()
@@ -67,7 +69,7 @@ def get_failed_jobs_for_product(product_id):
             where=f"product_id:{product_id},status:failure",
             limit=limit,
             offset=offset,
-            embed="remoteci,jobstates",
+            embed="remoteci,jobstates,analytics",
         ).json()["jobs"]
         jobs = jobs + jobs_list
         offset += limit
@@ -128,7 +130,7 @@ def enhance_job(job, first_jobstate_failure, files):
         job["is_dci-rhel-cki"] = True
     else:
         job["is_dci-rhel-cki"] = False
-
+    job["error_type"] = job["analytics"][0]["data"]["error_type"]
     return job
 
 
@@ -158,6 +160,7 @@ def get_values(job):
         values.append("1")
     else:
         values.append("0")
+    values.append(job["error_type"])
     return values
 
 
@@ -166,7 +169,7 @@ def test_data(job_id):
     create_csv_file_with_headers(csv_file_name, headers)
     try:
         r = dci_job.get(
-            context, id=job_id, limit=1, offset=0, embed="remoteci,jobstates"
+            context, id=job_id, limit=1, offset=0, embed="remoteci,jobstates,analytics"
         )
         job = r.json()["job"]
         first_jobstate_failure = get_first_jobstate_failure(job["jobstates"])
@@ -178,6 +181,20 @@ def test_data(job_id):
     except Exception:
         # LOG.error(traceback.format_exc())
         sys.exit(1)
+
+    # data = pd.read_csv(csv_file_name)
+    # return data
+
+
+def add_clasification(job_id, result):
+    r = dci_analytics.create(
+        context,
+        job_id=job_id,
+        name="",
+        type="",
+        url="http://example.com",
+        data=result,
+    )
 
 
 def api_main():
@@ -210,6 +227,8 @@ def api_main():
         job_values = get_values(job)
         append_job_to_csv(csv_file_name, job_values)
 
+
+    
 
 if __name__ == "__main__":
     api_main()
