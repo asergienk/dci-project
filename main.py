@@ -130,7 +130,11 @@ def enhance_job(job, first_jobstate_failure, files):
         job["is_dci-rhel-cki"] = True
     else:
         job["is_dci-rhel-cki"] = False
-    job["error_type"] = job["analytics"][0]["data"]["error_type"]
+    
+    try:
+        job["error_type"] = job["analytics"][0]["data"]["error_type"]
+    except Exception:
+        job["error_type"] = None
     return job
 
 
@@ -160,7 +164,11 @@ def get_values(job):
         values.append("1")
     else:
         values.append("0")
-    values.append(job["error_type"])
+    
+    if job["error_type"]:
+        values.append(job["error_type"])
+    else:
+        values.append("None")
     return values
 
 
@@ -227,8 +235,8 @@ def api_main():
         job_values = get_values(job)
         append_job_to_csv(csv_file_name, job_values)
 
-
     
 
 if __name__ == "__main__":
     api_main()
+
